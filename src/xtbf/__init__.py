@@ -1,6 +1,7 @@
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import multiprocessing
+from urllib.request import urlretrieve
 import uuid
 from joblib import Parallel, delayed
 import tqdm
@@ -20,7 +21,45 @@ import tempfile
 
 # Path to the xtb binary
 
-BIN_XTB = os.getenv("XTBF__BIN_XTB") or "xtb"
+BIN_XTB = "xtb"
+
+_LOCAL_BIN_XTB = (Path(__file__).parent / "bin" / "xtb")
+
+def install_local_xtb():
+    import platform
+    import tarfile
+    import shutil
+    os_name = platform.system()
+    os_name = os_name.lower()
+
+    if 'linux' in os_name:
+        url = "https://github.com/grimme-lab/xtb/releases/download/v6.6.1/xtb-6.6.1-linux-x86_64.tar.xz"
+        temp_tar = "/tmp/_xtbf_temp_bins.tar.xz"
+        temp_untar = "/tmp/xtbf_xtb_temp/"
+        urlretrieve(url,temp_tar)
+        with tarfile.open(temp_tar) as f:
+            f.extractall(temp_untar)
+
+        fle = Path(temp_untar)
+        fle = list(fle.iterdir())
+        if len(fle) == 1:
+            fle = fle[0]
+            fle = fle / "bin" / "xtb"
+            shutil.copy(fle, str(_LOCAL_BIN_XTB.resolve()))
+            return True
+
+    print("automatic installation of local xtb copy failed.")
+    return False
+        
+
+
+
+
+if _LOCAL_BIN_XTB.exists():
+    BIN_XTB = str(_LOCAL_BIN_XTB.resolve())
+
+
+BIN_XTB = os.getenv("XTBF__BIN_XTB") or BIN_XTB
 
 import subprocess
 import time
@@ -60,21 +99,21 @@ class Silencer:
 
 
 
+xtb_version = ""
 try:
     with Silencer() as s:
         xtb_version = subprocess.check_output(
             [f"{BIN_XTB}", "--version"],
             stderr=subprocess.DEVNULL,
         )
-    if not isinstance(xtb_version, str):
-        xtb_version = xtb_version.decode("utf-8")
-    xtb_version = re.findall(r"(version \d+.\d+.\d+)", xtb_version)
-except:
+        if not isinstance(xtb_version, str):
+            xtb_version = xtb_version.decode("utf-8")
+        xtb_version = re.findall(r"(version \d+.\d+.\d+)", xtb_version)
+except Exception as e:
     print("could not determine xtb version.")
     print(
         "most likely no xtb binary is installed. See: https://xtb-docs.readthedocs.io/en/latest/setup.html"
     )
-    raise
 
 if xtb_version:
     xtb_version = xtb_version[0]
@@ -90,7 +129,6 @@ else:
     print(
         "most likely no xtb binary is installed. See: https://xtb-docs.readthedocs.io/en/latest/setup.html"
     )
-    exit(1)
 
 
 # Try to prioritize memory mapped file system
