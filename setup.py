@@ -15,34 +15,51 @@ class CustomInstallCommand(install):
             import platform
             import tarfile
             import shutil
+            import os
             os_name = platform.system()
             os_name = os_name.lower()
 
-            if 'linux' in os_name:
-                url = "https://github.com/grimme-lab/xtb/releases/download/v6.6.1/xtb-6.6.1-linux-x86_64.tar.xz"
-                temp_tar = "/tmp/_xtbf_temp_bins.tar.xz"
-                temp_untar = "/tmp/xtbf_xtb_temp/"
-                urlretrieve(url,temp_tar)
-                with tarfile.open(temp_tar) as f:
-                    f.extractall(temp_untar)
+            def install_manually():
+                print("="*80)
+                print("failed to install xtb via conda package manager")
+                print("="*80)
+                if 'linux' in os_name:
+                    print("attempting local install")
+                    url = "https://github.com/grimme-lab/xtb/releases/download/v6.6.1/xtb-6.6.1-linux-x86_64.tar.xz"
+                    temp_tar = "/tmp/_xtbf_temp_bins.tar.xz"
+                    temp_untar = "/tmp/xtbf_xtb_temp/"
+                    urlretrieve(url,temp_tar)
+                    with tarfile.open(temp_tar) as f:
+                        f.extractall(temp_untar)
 
-                fle = Path(temp_untar)
-                fle = list(fle.iterdir())
-                if len(fle) == 1:
-                    fle = fle[0]
-                    fle = fle / "bin" / "xtb"
-                    shutil.copy(fle, str(_LOCAL_BIN_XTB.resolve()))
+                    fle = Path(temp_untar)
+                    fle = list(fle.iterdir())
+                    if len(fle) == 1:
+                        fle = fle[0]
+                        fle = fle / "bin" / "xtb"
+                        shutil.copy(fle, str(_LOCAL_BIN_XTB.resolve()))
+                        print("successfully installed local xtb binary.")
+                        return True
+
+                print("automatic installation of local xtb copy failed.")
+                return False
+
+            try:
+                print("="*80)
+                print("attempting to install xtb via conda package manager")
+                print("="*80)
+                rslt = os.system("conda install -y -c conda-forge xtb")
+                if not rslt:
                     return True
-
-            print("automatic installation of local xtb copy failed.")
-            return False
-
+                else:
+                    return install_manually()
+            except:
+                return install_manually()
         try:
             install_local_xtb()
         except:
             print("failed to install local xtb binary automatically.")
             print("refer to the official documentation to install xtb manually")
-
         
         # Call the parent class's run method
         install.run(self)
